@@ -151,19 +151,24 @@ func (c *CLI) buildCmd() error {
 	switch err := c.getInfo(); {
 	case err == nil:
 	case errors.As(err, &uve) && uve.Version.Compare(config.Version{Number: 3, Stage: stage.Alpha}) == 0:
-		// Check if the corresponding stable version exists, set c.projectVersion and break
 		stableVersion := config.Version{
 			Number: uve.Version.Number,
 		}
 		if config.IsRegistered(stableVersion) {
-			// Use the stableVersion
 			c.projectVersion = stableVersion
 		} else {
-			// stable version not registered, let's bail out
 			return err
 		}
 	default:
 		return err
+	}
+
+	// Workaround for kubebuilder alpha generate
+	if c.cmd.CalledAs() == "alpha generate" {
+		err := updateProjectFileForAlphaGenerate()
+		if err != nil {
+			return fmt.Errorf("failed to update PROJECT file: %w", err)
+		}
 	}
 
 	// Resolve plugins for project version and plugin keys.

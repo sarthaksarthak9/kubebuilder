@@ -256,6 +256,13 @@ func getInputPath(inputPath string) (string, error) {
 func getInitArgs(store store.Store) []string {
 	var args []string
 	plugins := store.Config().GetPluginChain()
+
+	for i, plugin := range plugins {
+		if plugin == "go.kubebuilder.io/v3" {
+			plugins[i] = "go.kubebuilder.io/v4"
+		}
+	}
+
 	if len(plugins) > 0 {
 		args = append(args, "--plugins", strings.Join(plugins, ","))
 	}

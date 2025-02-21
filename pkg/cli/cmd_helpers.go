@@ -20,7 +20,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"sigs.k8s.io/kubebuilder/v4/pkg/config"
@@ -335,4 +337,48 @@ func (factory *executionHooksFactory) postRunEFunc() func(*cobra.Command, []stri
 
 		return nil
 	}
+}
+
+// updateProjectFileForAlphaGenerate updates the PROJECT file to replace unsupported
+// plugins with a supported version before running `kubebuilder alpha generate`.
+
+func updateProjectFileForAlphaGenerate() error {
+	projectFilePath := "PROJECT"
+
+	content, err := os.ReadFile(projectFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read PROJECT file: %w", err)
+	}
+
+	projectStr := string(content)
+
+	// No need to update if v3 is not found
+	if !strings.Contains(projectStr, "go.kubebuilder.io/v3") {
+		return nil 
+	}
+
+	log.Warnf("Detected 'go.kubebuilder.io/v3' in PROJECT file.")
+	log.Warnf("Kubebuilder v4 no longer supports this. It will be replaced with 'go.kubebuilder.io/v4'.")
+
+	fmt.Print("Do you want to proceed? (y/N): ")
+
+	var response string
+	fmt.Scanln(&response)
+	response = strings.TrimSpace(strings.ToLower(response))
+
+	if response != "y" {
+		log.Warnf("Aborting kubebuilder alpha generate.")
+		return fmt.Errorf("user aborted operation")
+	}
+
+	updatedProjectStr := strings.ReplaceAll(projectStr, "go.kubebuilder.io/v3", "go.kubebuilder.io/v4")
+
+	err = os.WriteFile(projectFilePath, []byte(updatedProjectStr), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to update PROJECT file: %w", err)
+	}
+
+	log.Infof("PROJECT file successfully updated. Proceeding with kubebuilder alpha generate.")
+
+	return nil
 }
